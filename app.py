@@ -1,10 +1,17 @@
+# app.py
 import asyncio
+import uvicorn
 from core.telegram_client import client
-from core.config import DEBUG_LOG_JOINS
 from core.storage import load_dm_sent
 from services.dm_worker import dm_worker
 from handlers.joins import register_join_handler
 from handlers.private_messages import register_private_handler
+from services.api import app as fastapi_app  # importe l'instance FastAPI
+
+async def start_api():
+    config = uvicorn.Config(fastapi_app, host="0.0.0.0", port=8080, log_level="info")
+    server = uvicorn.Server(config)
+    await server.serve()
 
 async def serve_forever():
     backoff = 1
@@ -25,15 +32,13 @@ async def main():
     print(f"✅ Connecté en tant que {getattr(me, 'first_name','')} (@{getattr(me,'username',None)})")
 
     load_dm_sent()
-    print("[INFO] Utilisateurs déjà DM:", len(load_dm_sent.cache))
-
-    # Enregistre les handlers
     register_join_handler(client)
     register_private_handler(client)
 
-    # Lance le worker DM
+    # Lancer le worker DM + l'API + la boucle Telethon
     asyncio.create_task(dm_worker(client))
-    print(f"[READY] En écoute… (DEBUG_LOG_JOINS={'ON' if DEBUG_LOG_JOINS else 'OFF'})")
+    asyncio.create_task(start_api())
+    print("[READY] Telegram + API http://localhost:8080")
 
     await serve_forever()
 
