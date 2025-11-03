@@ -10,23 +10,45 @@ _state = {
     "muted_users": {},        # { "123456": true }
     "users": {},              # { "123456": { profile } }
     "conversations": {},      # { "123456": { "last_text": "...", "updated_at": 1234 } }
+    "_meta": {
+        "path": STATE_PATH,
+        "loaded_at": None,
+        "saved_at": None,
+        "writes": 0,
+    }
 }
 
+def _ensure_dir(path: str):
+    d = os.path.dirname(path)
+    if d and not os.path.isdir(d):
+        os.makedirs(d, exist_ok=True)
+
 def _load():
+    _state["_meta"]["path"] = STATE_PATH
+    _state["_meta"]["loaded_at"] = int(time.time())
     if os.path.isfile(STATE_PATH):
         try:
             with open(STATE_PATH, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 if isinstance(data, dict):
-                    _state.update(data)
-        except Exception:
-            pass
+                    # on ne remplace pas _state entièrement pour garder _meta
+                    for k in ("muted_users", "users", "conversations"):
+                        if k in data and isinstance(data[k], dict):
+                            _state[k] = data[k]
+        except Exception as e:
+            print(f"[STATE] LOAD ERROR: {e}")
 
 def _save():
-    tmp = STATE_PATH + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(_state, f, ensure_ascii=False, indent=2)
-    os.replace(tmp, STATE_PATH)
+    try:
+        _ensure_dir(STATE_PATH)
+        tmp = STATE_PATH + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(_state, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, STATE_PATH)
+        _state["_meta"]["saved_at"] = int(time.time())
+        _state["_meta"]["writes"] = _state["_meta"].get("writes", 0) + 1
+    except Exception as e:
+        print(f"[STATE] SAVE ERROR: {e}")
 
 # init au premier import
 _load()
@@ -58,7 +80,6 @@ def upsert_user_profile(user_id: int, profile: Dict[str, Any]):
         "last_name": profile.get("last_name"),
         "username": profile.get("username"),
         "phone": profile.get("phone"),
-        # place pour plus tard: "photo_small": url ou path si tu la télécharges
     }
     _save()
 
@@ -79,6 +100,27 @@ def list_conversations() -> List[Dict[str, Any]]:
             "conversation": conv,
             "muted": is_muted(int(uid)),
         })
-    # tri du plus récent au plus ancien
     out.sort(key=lambda x: x["conversation"].get("updated_at", 0), reverse=True)
     return out
+
+# ---------- Debug helpers ----------
+def get_state_meta() -> Dict[str, Any]:
+    meta = dict(_state.get("_meta", {}))
+    try:
+        if os.path.isfile(STATE_PATH):
+            st = os.stat(STATE_PATH)
+            meta["file_exists"] = True
+            meta["file_size"] = st.st_size
+            meta["file_mtime"] = int(st.st_mtime)
+        else:
+            meta["file_exists"] = False
+            meta["file_size"] = 0
+            meta["file_mtime"] = None
+    except Exception as e:
+        meta["stat_error"] = str(e)
+    meta["counts"] = {
+        "muted_users": len(_state["muted_users"]),
+        "users": len(_state["users"]),
+        "conversations": len(_state["conversations"]),
+    }
+    return meta
