@@ -14,7 +14,20 @@ from typing import Optional
 import httpx
 from dotenv import load_dotenv
 from telethon import TelegramClient, events
-from telethon.errors import FloodWaitError, ChatWriteForbiddenError, PeerFloodError
+from telethon.errors import FloodWaitError, ChatWriteForbiddenError, PeerFloodError, TypeNotFoundError
+
+from telethon.network.mtprotosender import MTProtoSender
+
+_old_handle = MTProtoSender._handle_rpc_result
+
+async def _safe_handle(self, *args, **kwargs):
+    try:
+        return await _old_handle(self, *args, **kwargs)
+    except TypeNotFoundError as e:
+        print(f"[WARN] Objet MTProto inconnu ignoré: {e}")
+        return None
+
+MTProtoSender._handle_rpc_result = _safe_handle
 
 # ---------- Compat Python >= 3.12 ----------
 if sys.version_info >= (3, 12):
