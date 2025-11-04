@@ -13,7 +13,6 @@ from core.storage import init_storage
 # ==============================
 API_ID = os.getenv("API_ID")
 API_HASH = os.getenv("API_HASH")
-SESSION_STRING = os.getenv("SESSION_STRING")  # Railway variable
 TARGET_GROUP_ID = os.getenv("TARGET_GROUP_ID")
 
 if not API_ID or not API_HASH:
@@ -29,13 +28,24 @@ if TARGET_GROUP_ID:
 
 
 # ==============================
+# LECTURE DE LA SESSION
+# ==============================
+session_string = None
+
+try:
+    with open("data/session.txt", "r") as f:
+        session_string = f.read().strip()
+        print("✅ Session string chargée depuis data/session.txt")
+except FileNotFoundError:
+    print("⚠️ Fichier data/session.txt introuvable — vérifie qu’il existe et contient la session string valide.")
+
+
+# ==============================
 # INITIALISATION DU CLIENT
 # ==============================
-if SESSION_STRING:
-    print("✅ Utilisation de la session string (mode headless)")
-    client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
+if session_string:
+    client = TelegramClient(StringSession(session_string), API_ID, API_HASH)
 else:
-    print("⚠️ Aucune SESSION_STRING trouvée — utilisation du fichier local de session")
     client = TelegramClient("data/userbot_session", API_ID, API_HASH)
 
 
@@ -48,7 +58,7 @@ async def main():
 
     # Vérifie que la session est valide
     if not await client.is_user_authorized():
-        print("❌ Session absente ou invalide — fournis une SESSION_STRING valide dans Railway.")
+        print("❌ Session absente ou invalide — vérifie data/session.txt")
         return
 
     me = await client.get_me()
