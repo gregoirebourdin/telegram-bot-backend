@@ -7,6 +7,14 @@ API_ID = int(os.getenv("API_ID"))
 API_HASH = os.getenv("API_HASH")
 SESSION_NAME = os.getenv("SESSION_NAME", "userbot_session")
 
+
+SESSION_STRING = os.getenv("SESSION_STRING")
+STATE_PATH = os.getenv("STATE_PATH", "./data/state.json")
+DM_SENT_DB = os.getenv("DM_SENT_DB", "./data/dm_sent.json")
+PORT = int(os.getenv("PORT", 8080))
+TARGET_GROUP = os.getenv("TARGET_GROUP")
+
+
 # Chatbase
 CHATBASE_API_KEY = os.getenv("CHATBASE_API_KEY")
 CHATBASE_BOT_ID = os.getenv("CHATBASE_BOT_ID")
@@ -34,3 +42,5 @@ WELCOME_DM = (
     "Dis-moi, je suis curieuse… tu aimerais avoir quel type de résultats avec les réseaux sociaux ?\n\n"
     "Juste un complément ou remplacer ton salaire ? 😊"
 )
+
+

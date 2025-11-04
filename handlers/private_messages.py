@@ -1,47 +1,7 @@
-# handlers/private_messages.py
-import asyncio
-import random
 from telethon import events
-from core.config import REPLY_DELAY_MIN, REPLY_DELAY_MAX
-from services.chatbase import ask_chatbase
-from models.history import append_turn
-from services.state import upsert_user_profile, touch_conversation, is_muted
 
 def register_private_handler(client):
-    @client.on(events.NewMessage)
-    async def on_private_message(event):
-        if event.out or not event.is_private:
-            return
-        text = (event.raw_text or "").strip()
-        if not text:
-            return
-
+    @client.on(events.NewMessage(incoming=True))
+    async def handler(event):
         sender = await event.get_sender()
-        uid = sender.id
-
-        # Profils/conversations mis à jour pour le front
-        upsert_user_profile(uid, {
-            "first_name": getattr(sender, "first_name", None),
-            "last_name": getattr(sender, "last_name", None),
-            "username": getattr(sender, "username", None),
-            "phone": getattr(sender, "phone", None),
-        })
-        touch_conversation(uid, last_text=text)
-
-        # Si MUTED → on ne laisse pas Chatbase répondre
-        if is_muted(uid):
-            print(f"[MUTED] {uid} → aucune réponse auto (opérateur prend la main).")
-            append_turn(uid, text, None)
-            return
-
-        delay = random.uniform(REPLY_DELAY_MIN, REPLY_DELAY_MAX)
-        await asyncio.sleep(delay)
-
-        answer = await ask_chatbase(uid, text)
-        if answer:
-            await client.send_message(sender, answer, reply_to=event.id)
-            append_turn(uid, text, answer)
-            touch_conversation(uid, last_text=answer)
-            print(f"[DM OUT -> {uid}] (~{int(delay)}s)")
-        else:
-            append_turn(uid, text, None)
+        print(f"[PRIVATE] Message reçu de {sender.first_name}: {event.text}")
