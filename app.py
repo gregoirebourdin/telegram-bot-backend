@@ -23,8 +23,12 @@ else:
 
 # --- LANCEMENT ---
 async def main():
+
     print("Connexion à Telegram…")
-    await client.start()
+    await client.connect()
+    if not await client.is_user_authorized():
+        print("[AUTH] Session absente ou invalide. Fournis SESSION_STRING valide.")
+        return
     me = await client.get_me()
     print(f"✅ Connecté en tant que {me.first_name} (@{me.username})")
 
