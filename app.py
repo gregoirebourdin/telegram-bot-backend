@@ -1,48 +1,83 @@
 import os
 import asyncio
-from telethon import TelegramClient, events
+from telethon import TelegramClient
 from telethon.sessions import StringSession
 
 from handlers.joins import register_join_handler
 from handlers.private_messages import register_private_handler
 from core.storage import init_storage
 
-# --- CONFIG ---
-API_ID = int(os.getenv("API_ID"))
-API_HASH = os.getenv("API_HASH")
-SESSION_STRING = os.getenv("SESSION_STRING")  # <== ta variable Railway
-TARGET_GROUP_ID = int(os.getenv("TARGET_GROUP_ID"))
 
-# --- INIT TELEGRAM CLIENT ---
+# ==============================
+# CONFIGURATION
+# ==============================
+API_ID = os.getenv("API_ID")
+API_HASH = os.getenv("API_HASH")
+SESSION_STRING = os.getenv("SESSION_STRING")  # Railway variable
+TARGET_GROUP_ID = os.getenv("TARGET_GROUP_ID")
+
+if not API_ID or not API_HASH:
+    raise ValueError("❌ API_ID et API_HASH sont requis dans les variables d’environnement.")
+API_ID = int(API_ID)
+
+if TARGET_GROUP_ID:
+    try:
+        TARGET_GROUP_ID = int(TARGET_GROUP_ID)
+    except ValueError:
+        print("⚠️ TARGET_GROUP_ID invalide, il doit être un nombre.")
+        TARGET_GROUP_ID = None
+
+
+# ==============================
+# INITIALISATION DU CLIENT
+# ==============================
 if SESSION_STRING:
-    print("✅ Utilisation de la session string")
+    print("✅ Utilisation de la session string (mode headless)")
     client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
 else:
-    print("⚠️  Aucune SESSION_STRING trouvée, utilisation du fichier local.")
+    print("⚠️ Aucune SESSION_STRING trouvée — utilisation du fichier local de session")
     client = TelegramClient("data/userbot_session", API_ID, API_HASH)
 
-# --- LANCEMENT ---
-async def main():
 
+# ==============================
+# MAIN
+# ==============================
+async def main():
     print("Connexion à Telegram…")
     await client.connect()
+
+    # Vérifie que la session est valide
     if not await client.is_user_authorized():
-        print("[AUTH] Session absente ou invalide. Fournis SESSION_STRING valide.")
+        print("❌ Session absente ou invalide — fournis une SESSION_STRING valide dans Railway.")
         return
+
     me = await client.get_me()
     print(f"✅ Connecté en tant que {me.first_name} (@{me.username})")
 
-    # Initialiser le stockage
+    # Initialisation du stockage (historique, état, etc.)
     init_storage()
 
     # Enregistrement des handlers
-    register_join_handler(client, TARGET_GROUP_ID)
-    register_private_handler(client)
+    if TARGET_GROUP_ID:
+        register_join_handler(client, TARGET_GROUP_ID)
+        print(f"[INFO] Surveillance du groupe ID: {TARGET_GROUP_ID}")
+    else:
+        print("[INFO] Aucun groupe configuré (TARGET_GROUP_ID manquant).")
 
-    print(f"[READY] En écoute sur {TARGET_GROUP_ID}…")
+    register_private_handler(client)
+    print("[READY] En écoute Telegram + API")
 
     # Garde le client actif
     await client.run_until_disconnected()
 
+
+# ==============================
+# ENTRYPOINT
+# ==============================
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("🛑 Arrêt manuel du bot.")
+    except Exception as e:
+        print(f"❌ Erreur critique: {type(e).__name__} - {e}")
