@@ -1,35 +1,44 @@
+import os
 import asyncio
-import uvicorn
-from core.telegram_client import client
-from core.storage import load_dm_sent
+from telethon import TelegramClient, events
+from telethon.sessions import StringSession
+
 from handlers.joins import register_join_handler
 from handlers.private_messages import register_private_handler
-from services.dm_worker import dm_worker
-from services.api import app as api_app
-from core.config import PORT
+from core.storage import init_storage
 
-async def start_api():
-    config = uvicorn.Config(api_app, host="0.0.0.0", port=PORT, log_level="info")
-    server = uvicorn.Server(config)
-    await server.serve()
+# --- CONFIG ---
+API_ID = int(os.getenv("API_ID"))
+API_HASH = os.getenv("API_HASH")
+SESSION_STRING = os.getenv("SESSION_STRING")  # <== ta variable Railway
+TARGET_GROUP_ID = int(os.getenv("TARGET_GROUP_ID"))
 
+# --- INIT TELEGRAM CLIENT ---
+if SESSION_STRING:
+    print("✅ Utilisation de la session string")
+    client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
+else:
+    print("⚠️  Aucune SESSION_STRING trouvée, utilisation du fichier local.")
+    client = TelegramClient("data/userbot_session", API_ID, API_HASH)
+
+# --- LANCEMENT ---
 async def main():
     print("Connexion à Telegram…")
-    await client.connect()
+    await client.start()
     me = await client.get_me()
     print(f"✅ Connecté en tant que {me.first_name} (@{me.username})")
 
-    load_dm_sent()
+    # Initialiser le stockage
+    init_storage()
 
-    register_join_handler(client)
+    # Enregistrement des handlers
+    register_join_handler(client, TARGET_GROUP_ID)
     register_private_handler(client)
 
-    asyncio.create_task(dm_worker(client))
-    asyncio.create_task(start_api())
+    print(f"[READY] En écoute sur {TARGET_GROUP_ID}…")
 
-    print("[READY] En écoute Telegram + API")
+    # Garde le client actif
     await client.run_until_disconnected()
 
 if __name__ == "__main__":
-    with client:
-        client.loop.run_until_complete(main())
+    asyncio.run(main())
