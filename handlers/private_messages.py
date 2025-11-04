@@ -1,5 +1,5 @@
 from telethon import events
-from services.chatbase import ask_chatbase
+from utils.chatbase import ask_chatbase
 from models.history import append_message
 
 def register_private_handler(client):
